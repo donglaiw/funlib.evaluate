@@ -8,6 +8,7 @@ def expected_run_length(
         node_segment_lut,
         skeleton_lengths=None,
         skeleton_position_attributes=None,
+        merge_thres=0,
         return_merge_split_stats=False):
     '''Compute the expected run-length on skeletons, given a segmentation in
     the form of a node -> segment lookup table.
@@ -80,6 +81,7 @@ def expected_run_length(
         skeletons,
         skeleton_id_attribute,
         node_segment_lut,
+        merge_thres,
         return_merge_split_stats=return_merge_split_stats)
 
     if return_merge_split_stats:
@@ -88,6 +90,8 @@ def expected_run_length(
         skeleton_scores = res
 
     skeletons_erl = 0
+    db = {}
+    db2 = {}
 
     for skeleton_id, scores in skeleton_scores.items():
 
@@ -109,7 +113,10 @@ def expected_run_length(
             (skeleton_length/total_skeletons_length) *
             skeleton_erl
         )
+        db[skeleton_id] = skeleton_erl
+        db2[skeleton_id] = skeleton_length
 
+    # import pdb; pdb.set_trace()
     if return_merge_split_stats:
         return skeletons_erl, merge_split_stats
     else:
@@ -188,6 +195,7 @@ def evaluate_skeletons(
         skeletons,
         skeleton_id_attribute,
         node_segment_lut,
+        merge_thres,
         return_merge_split_stats=False):
 
     # find all merging segments (skeleton edges on merging segments will be
@@ -200,7 +208,8 @@ def evaluate_skeletons(
     ])
 
     # unique pairs of (skeleton, segment)
-    skeleton_segment = np.unique(skeleton_segment, axis=0)
+    skeleton_segment, count = np.unique(skeleton_segment, axis=0, return_counts=True)
+    skeleton_segment = skeleton_segment[count > merge_thres]
 
     # number of times that a segment was mapped to a skeleton
     segments, num_segment_skeletons = np.unique(
@@ -213,6 +222,8 @@ def evaluate_skeletons(
     merging_segments_mask = np.isin(skeleton_segment[:, 1], merging_segments)
     merged_skeletons = skeleton_segment[:, 0][merging_segments_mask]
     merging_segments = set(merging_segments)
+    # import pdb; pdb.set_trace()
+    # skeleton_segment[skeleton_segment[:,1]==207]
 
     merges = {}
     splits = {}
@@ -248,7 +259,6 @@ def evaluate_skeletons(
 
         if segment_u != segment_v:
             scores.split += 1
-
             if return_merge_split_stats:
                 if skeleton_id not in splits:
                     splits[skeleton_id] = []
